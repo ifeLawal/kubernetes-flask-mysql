@@ -6,14 +6,15 @@ RUN apt-get clean \
 RUN apt-get -y install \
     nginx \
     python3-dev \
-    build-essential
+    build-essential \
+    default-libmysqlclient-dev
 
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
-RUN pip install -r requirements.txt --src /usr/local/src
+RUN pip3 install -r requirements.txt --src /usr/local/src
 
 COPY . .
 
 EXPOSE 5000
-CMD [ "python", "flaskapi.py" ]
+CMD [ "python3", "flaskapi.py" ]

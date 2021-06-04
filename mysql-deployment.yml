@@ -21,10 +21,7 @@ spec:
         imagePullPolicy: Never
         env:
         - name: MYSQL_ROOT_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: flaskapi-secrets
-              key: db_root_password
+          value: "my-secret-pw"
         ports:
         - containerPort: 3306
           name: db-container

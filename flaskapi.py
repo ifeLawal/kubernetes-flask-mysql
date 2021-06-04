@@ -11,8 +11,8 @@ username = "root"
 password = os.getenv("db_root_password", "")
 db_name = os.getenv("db_name", "users")
 service = os.getenv("MYSQL_SERVICE_HOST", "localhost")
-service += ":" + int(os.getenv("MYSQL_SERVICE_PORT")) if os.getenv("MYSQL_SERVICE_PORT") else ""
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{username}:{password}@{service}/{db_name}"
+service += ":" + os.getenv("MYSQL_SERVICE_PORT") if os.getenv("MYSQL_SERVICE_PORT") else ""
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{username}:@{service}/{db_name}"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy()
 db.init_app(app)
