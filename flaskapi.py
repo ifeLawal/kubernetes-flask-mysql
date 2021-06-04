@@ -1,27 +1,55 @@
 """Code for a flask API to Create, Read, Update, Delete users"""
 import os
 from flask import jsonify, request, Flask
-from flaskext.mysql import MySQL
+from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
 
 app = Flask(__name__)
 
-mysql = MySQL()
-
 # MySQL configurations
-app.config["MYSQL_DATABASE_USER"] = "root"
-app.config["MYSQL_DATABASE_PASSWORD"] = os.getenv("db_root_password")
-app.config["MYSQL_DATABASE_DB"] = os.getenv("db_name")
-app.config["MYSQL_DATABASE_HOST"] = os.getenv("MYSQL_SERVICE_HOST")
-app.config["MYSQL_DATABASE_PORT"] = int(os.getenv("MYSQL_SERVICE_PORT"))
-mysql.init_app(app)
+username = "root"
+password = os.getenv("db_root_password", "")
+db_name = os.getenv("db_name", "users")
+service = os.getenv("MYSQL_SERVICE_HOST", "localhost")
+service += ":" + int(os.getenv("MYSQL_SERVICE_PORT")) if os.getenv("MYSQL_SERVICE_PORT") else ""
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{username}:{password}@{service}/{db_name}"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy()
+db.init_app(app)
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True)
+    password = db.Column(db.String(120))
+    email = db.Column(db.String(120), unique=True)
+
+    def __init__(self, username, password, email):
+        self.username = username
+        self.password = password
+        self.email = email
+
+    def __repr__(self):
+        return '<User %r>' % self.username
+
+ma = Marshmallow()  # Not passing `app`
+class UserSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = User
 
 @app.route("/")
 def index():
     """Function to test the functionality of the API"""
     return "Hello, world!"
 
-
+@app.route("/first")
+def first_user():
+    admin = User('admin', 'password', 'admin@example.com')
+    db.session.add(admin)
+    db.session.commit()
+    resp = UserSchema().jsonify(admin)
+    resp.status_code = 200
+    return resp
+    
 @app.route("/create", methods=["POST"])
 def add_user():
     """Function to create a user to the MySQL database"""
@@ -30,16 +58,10 @@ def add_user():
     email = json["email"]
     pwd = json["pwd"]
     if name and email and pwd and request.method == "POST":
-        sql = "INSERT INTO users(user_name, user_email, user_password) " \
-              "VALUES(%s, %s, %s)"
-        data = (name, email, pwd)
         try:
-            conn = mysql.connect()
-            cursor = conn.cursor()
-            cursor.execute(sql, data)
-            conn.commit()
-            cursor.close()
-            conn.close()
+            user = User(username=name, password=pwd, email=email)
+            db.session.add(user)
+            db.session.commit()
             resp = jsonify("User created successfully!")
             resp.status_code = 200
             return resp
@@ -53,13 +75,7 @@ def add_user():
 def users():
     """Function to retrieve all users from the MySQL database"""
     try:
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users")
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        resp = jsonify(rows)
+        resp = UserSchema(many=True).jsonify(User.query.all())
         resp.status_code = 200
         return resp
     except Exception as exception:
@@ -70,13 +86,8 @@ def users():
 def user(user_id):
     """Function to get information of a specific user in the MSQL database"""
     try:
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE user_id=%s", user_id)
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        resp = jsonify(row)
+        user = User.query.filter_by(id=user_id).first_or_404()
+        resp = UserSchema().jsonify(user)
         resp.status_code = 200
         return resp
     except Exception as exception:
@@ -93,18 +104,14 @@ def update_user():
     user_id = json["user_id"]
     if name and email and pwd and user_id and request.method == "POST":
         # save edits
-        sql = "UPDATE users SET user_name=%s, user_email=%s, " \
-              "user_password=%s WHERE user_id=%s"
-        data = (name, email, pwd, user_id)
         try:
-            conn = mysql.connect()
-            cursor = conn.cursor()
-            cursor.execute(sql, data)
-            conn.commit()
+            user = User.query.filter_by(id=user_id).first_or_404()
+            user.username = name
+            user.password = pwd
+            user.email = email
+            db.session.commit()
             resp = jsonify("User updated successfully!")
             resp.status_code = 200
-            cursor.close()
-            conn.close()
             return resp
         except Exception as exception:
             return jsonify(str(exception))
@@ -116,18 +123,17 @@ def update_user():
 def delete_user(user_id):
     """Function to delete a user from the MySQL database"""
     try:
-        conn = mysql.connect()
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM users WHERE user_id=%s", user_id)
-        conn.commit()
-        cursor.close()
-        conn.close()
+        User.query.filter_by(id=user_id).delete()
+        db.session.commit()
         resp = jsonify("User deleted successfully!")
         resp.status_code = 200
         return resp
     except Exception as exception:
         return jsonify(str(exception))
 
+db.init_app(app)
+with app.app_context():
+    db.create_all()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
