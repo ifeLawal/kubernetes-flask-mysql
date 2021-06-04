@@ -4,7 +4,7 @@ This repo contains code that
 1) Deploys a MySQL server on a Kubernetes cluster
 2) Attaches a persistent volume to it, so the data remains contained if pods are restarting
 3) Deploys a Flask API to add, delete and modify users in the MySQL database
-
+4) The Flask API can be ran locally for testing. Just [install and run](https://dev.mysql.com/doc/mysql-getting-started/en/) mysql locally
 ## Prerequisites
 1. Have `Docker` and the `Kubernetes CLI` (`kubectl`) installed together with `Minikube` (https://kubernetes.io/docs/tasks/tools/)
 
